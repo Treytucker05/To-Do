@@ -1,0 +1,262 @@
+
+import React, { useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { InputSection } from './components/InputSection';
+import { Dashboard } from './components/Dashboard';
+import { DataControls } from './components/DataControls';
+import { parseTasksFromText } from './services/geminiService';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { Task, Priority, Subtask, AISubtask } from './types';
+import { BrainCircuit, Info, Copy, Check } from 'lucide-react';
+
+const EXTERNAL_AI_PROMPT = `Analyze the provided content (calendar, notes, or list) and organize it into a strict hierarchical to-do list.
+
+Formatting Rules:
+- Start every line with a simple dash (-).
+- Use exactly 2 spaces for indentation to show subtasks.
+- Do not use bold text, markdown headers, or conversational filler.
+- Group related items logically.
+- Output ONLY the final list.`;
+
+const App: React.FC = () => {
+  const [tasks, setTasks] = useLocalStorage<Task[]>('smartdo-tasks', []);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Recursive helper to map AI subtasks to application Subtasks with UUIDs
+  // We try to preserve IDs if the AI returned them and they aren't "NEW"
+  const mapSubtasks = (items?: AISubtask[]): Subtask[] => {
+    if (!items) return [];
+    return items.map(item => ({
+      id: (item.id && item.id !== 'NEW') ? item.id : uuidv4(),
+      title: item.title,
+      // @ts-ignore - The AI result might have isCompleted, forcing type check ignore for simplicity
+      isCompleted: item.isCompleted === true, 
+      subtasks: mapSubtasks(item.subtasks)
+    }));
+  };
+
+  const handleProcess = async (text: string) => {
+    setIsProcessing(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      // Pass current tasks so AI can update them (add dates, rename, reorder)
+      const result = await parseTasksFromText(text, tasks);
+      
+      const updatedTasks: Task[] = result.tasks.map(t => {
+        // Check if this corresponds to an existing task
+        const existingTask = tasks.find(old => old.id === t.id);
+        
+        // Determine ID: If AI sent a known ID, keep it. If "NEW" or missing, generate UUID.
+        const finalId = (t.id && t.id !== 'NEW' && existingTask) ? t.id : uuidv4();
+
+        // Determine Completion: 
+        // 1. If AI explicitly returns a boolean (user said "I finished X"), use it.
+        // 2. Otherwise, preserve existing state.
+        // 3. Default to false for new items.
+        // @ts-ignore
+        const aiCompletedStatus = t.isCompleted; 
+        let finalIsCompleted = false;
+
+        if (typeof aiCompletedStatus === 'boolean') {
+          finalIsCompleted = aiCompletedStatus;
+        } else if (existingTask) {
+          finalIsCompleted = existingTask.isCompleted;
+        }
+
+        return {
+          id: finalId,
+          title: t.title,
+          description: t.description,
+          dueDate: t.dueDate,
+          priority: t.priority as Priority,
+          category: t.category,
+          isCompleted: finalIsCompleted,
+          createdAt: existingTask ? existingTask.createdAt : new Date().toISOString(),
+          subtasks: mapSubtasks(t.subtasks)
+        };
+      });
+
+      // Replace the entire list with the AI's ordered, updated list
+      setTasks(updatedTasks);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to process tasks. Please try again. Make sure your API Key is valid.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const toggleComplete = (id: string) => {
+    setTasks(prev => prev.map(t => 
+      t.id === id ? { ...t, isCompleted: !t.isCompleted } : t
+    ));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleClearData = () => {
+    setTasks([]);
+    setSuccessMsg("All tasks cleared.");
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const toggleSubtask = (taskId: string, subtaskId: string) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+
+      // Recursive update function
+      const updateSubtasks = (items: Subtask[]): Subtask[] => {
+        return items.map(item => {
+          // If this is the item, toggle it
+          if (item.id === subtaskId) {
+            return { ...item, isCompleted: !item.isCompleted };
+          }
+          // If it has children, recurse
+          if (item.subtasks && item.subtasks.length > 0) {
+            return { ...item, subtasks: updateSubtasks(item.subtasks) };
+          }
+          return item;
+        });
+      };
+
+      return {
+        ...t,
+        subtasks: updateSubtasks(t.subtasks)
+      };
+    }));
+  };
+
+  const handleCopyPrompt = () => {
+    navigator.clipboard.writeText(EXTERNAL_AI_PROMPT);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `smartdo_backup_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(downloadAnchorNode); 
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    setSuccessMsg("Backup downloaded successfully.");
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (Array.isArray(json)) {
+             setTasks(json);
+             setSuccessMsg("Tasks restored successfully from file.");
+             setTimeout(() => setSuccessMsg(null), 3000);
+        } else {
+            setError("Invalid file format. Expected a list of tasks.");
+            setTimeout(() => setError(null), 4000);
+        }
+      } catch (err) {
+        setError("Failed to parse file.");
+        setTimeout(() => setError(null), 4000);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input so same file can be selected again
+  };
+
+  return (
+    <div className="h-screen w-full flex flex-col bg-black">
+      {/* Header */}
+      <header className="bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-red-600 rounded-lg text-white">
+            <BrainCircuit size={24} />
+          </div>
+          <h1 className="text-xl font-bold text-zinc-100 tracking-tight">SmartDo AI</h1>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 text-sm text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
+          <Info size={14} />
+          <span>Local Storage Enabled</span>
+        </div>
+      </header>
+
+      {/* Main Layout */}
+      <main className="flex-1 overflow-hidden flex flex-col md:flex-row">
+        {/* Left/Top: Input Area */}
+        <div className="w-full md:w-[450px] p-6 overflow-y-auto border-r border-zinc-800 bg-black">
+          <InputSection onProcess={handleProcess} isProcessing={isProcessing} />
+          
+          <DataControls onExport={handleExport} onImport={handleImport} onClear={handleClearData} />
+
+          {error && (
+            <div className="bg-red-950/30 text-red-400 p-4 rounded-xl border border-red-900/50 text-sm mb-6 animate-pulse">
+              {error}
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="bg-green-950/30 text-green-400 p-4 rounded-xl border border-green-900/50 text-sm mb-6 flex items-center gap-2">
+              <Check size={16} /> {successMsg}
+            </div>
+          )}
+
+          <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 text-sm text-zinc-400 mb-6">
+            <h4 className="font-semibold mb-2 text-zinc-200">What can I do?</h4>
+            <ul className="list-disc pl-4 space-y-1 text-zinc-500">
+              <li>"Paste my Anatomy exam outline"</li>
+              <li>"I finished the Stats homework"</li>
+              <li>"Move Groceries to the top of the list"</li>
+              <li>"Rename 'Study' to 'Deep Work'"</li>
+            </ul>
+          </div>
+
+          {/* Prompt Helper */}
+          <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
+            <div className="flex justify-between items-center mb-2">
+                <h4 className="font-semibold text-zinc-200 text-sm">Helper Prompt</h4>
+                <button 
+                    onClick={handleCopyPrompt}
+                    className="flex items-center gap-1.5 text-xs font-medium bg-zinc-800 hover:bg-red-900/30 text-zinc-300 hover:text-red-400 px-2 py-1 rounded border border-zinc-700 transition-all"
+                >
+                    {copied ? <Check size={12} /> : <Copy size={12} />}
+                    {copied ? 'Copied!' : 'Copy'}
+                </button>
+            </div>
+            <p className="text-xs text-zinc-500 mb-2 leading-relaxed">
+                Paste this instruction into your AI (ChatGPT/Gemini) so it knows how to format your calendar or notes for this app.
+            </p>
+            <textarea
+                readOnly
+                value={EXTERNAL_AI_PROMPT}
+                className="w-full h-48 bg-black border border-zinc-800 rounded p-3 text-xs text-zinc-400 font-mono resize-none focus:outline-none focus:border-zinc-700 cursor-text"
+                onClick={(e) => e.currentTarget.select()}
+            />
+          </div>
+        </div>
+
+        {/* Right/Bottom: Task List */}
+        <div className="flex-1 p-6 bg-black overflow-hidden">
+          <Dashboard 
+            tasks={tasks} 
+            onToggleComplete={toggleComplete} 
+            onDelete={deleteTask} 
+            onToggleSubtask={toggleSubtask}
+          />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default App;
