@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set PORT=3002
+set PORT=3010
 set URL=http://localhost:%PORT%/
 
 REM Change to the folder this script lives in
