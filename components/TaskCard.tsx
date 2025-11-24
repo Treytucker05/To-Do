@@ -33,7 +33,7 @@ const SubtaskItem: React.FC<{
         
         <button 
           onClick={() => onToggle(taskId, subtask.id)}
-          className={`mt-0.5 flex-shrink-0 transition-all duration-200 ${subtask.isCompleted ? 'text-zinc-600 scale-90' : 'text-zinc-600 hover:text-green-500 hover:scale-110'}`}
+          className={`mt-0.5 flex-shrink-0 transition-all duration-200 ${subtask.isCompleted ? 'text-zinc-400 scale-90' : 'text-zinc-300 hover:text-green-400 hover:scale-110'}`}
         >
           {subtask.isCompleted ? <CheckCircle size={14} /> : <Circle size={14} />}
         </button>
@@ -41,7 +41,7 @@ const SubtaskItem: React.FC<{
         <div className="flex-1 min-w-0">
            <div className="flex items-center gap-2">
              <span 
-               className={`text-sm transition-colors cursor-pointer select-none ${subtask.isCompleted ? 'line-through text-zinc-600' : 'text-zinc-300 group-hover/item:text-zinc-100'}`}
+               className={`text-sm transition-colors cursor-pointer select-none ${subtask.isCompleted ? 'line-through text-zinc-400' : 'text-zinc-300 group-hover/item:text-zinc-100'}`}
                onClick={() => hasChildren && setIsExpanded(!isExpanded)}
              >
                {subtask.title}
@@ -49,7 +49,7 @@ const SubtaskItem: React.FC<{
              {hasChildren && (
                <button 
                  onClick={() => setIsExpanded(!isExpanded)}
-                 className="text-zinc-600 hover:text-zinc-400"
+                 className="text-zinc-300 hover:text-zinc-100"
                >
                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                </button>
@@ -104,7 +104,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     },
     [Priority.Low]: { 
         bg: 'bg-zinc-800', 
-        text: 'text-zinc-400', 
+        text: 'text-zinc-200', 
         border: 'border-zinc-700', 
         icon: null 
     },
@@ -204,7 +204,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       <div className="p-4 flex items-start gap-4">
         {/* Drag Handle (Only visible on hover if draggable) */}
         {isDraggable && (
-          <div className="mt-1.5 -ml-1 text-zinc-700 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="mt-1.5 -ml-1 text-zinc-400 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity">
             <GripVertical size={16} />
           </div>
         )}
@@ -215,8 +215,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           className={`
             mt-1 flex-shrink-0 transition-all duration-300 transform
             ${task.isCompleted 
-                ? 'text-zinc-600' 
-                : 'text-zinc-500 hover:text-green-500 hover:scale-110 active:scale-95'
+                ? 'text-zinc-400'
+                : 'text-zinc-300 hover:text-green-400 hover:scale-110 active:scale-95'
             }
           `}
         >
@@ -226,14 +226,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start gap-2">
-            <h3 className={`font-medium text-base leading-snug break-words transition-colors ${task.isCompleted ? 'line-through text-zinc-600' : 'text-zinc-100 group-hover:text-white'}`}>
+            <h3 className={`font-medium text-base leading-snug break-words transition-colors ${task.isCompleted ? 'line-through text-zinc-400' : 'text-zinc-100 group-hover:text-white'}`}>
               {task.title}
             </h3>
             
             {/* Action Menu (Visible on Hover) */}
             <button 
               onClick={() => onDelete(task.id)}
-              className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-zinc-800 rounded"
+              className="text-zinc-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-zinc-800 rounded"
               title="Delete Task"
             >
               <Trash2 size={16} />
@@ -244,13 +244,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <div className="flex flex-wrap gap-2 mt-2.5 items-center">
             
             {/* Category */}
-            <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded text-zinc-400 bg-zinc-800/50 border border-zinc-800/50">
+            <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded text-zinc-200 bg-zinc-800/50 border border-zinc-800/50">
                 {task.category}
             </span>
 
             {/* Date */}
             {task.dueDate && (
-              <span className={`text-xs px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-medium ${isOverdue ? 'bg-red-950/30 text-red-400 border-red-900/50' : 'bg-zinc-800/50 text-zinc-400 border-zinc-800'}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-medium ${isOverdue ? 'bg-red-950/30 text-red-400 border-red-900/50' : 'bg-zinc-800/50 text-zinc-200 border-zinc-800'}`}>
                 <Clock size={11} />
                 {formatDate(task.dueDate)}
               </span>
@@ -271,7 +271,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <div className="mt-3 pt-2 border-t border-zinc-800/50">
               <button 
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-xs text-zinc-500 font-medium hover:text-zinc-300 flex items-center gap-1.5 transition-colors"
+                className="text-xs text-zinc-300 font-medium hover:text-zinc-100 flex items-center gap-1.5 transition-colors"
               >
                 {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 {counts.total > 0 
@@ -287,7 +287,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {isExpanded && (
         <div className="px-4 pb-4 pt-0 ml-11">
           {task.description && (
-            <div className="text-sm text-zinc-400 mb-3 pl-3 border-l-2 border-zinc-700 italic">
+            <div className="text-sm text-zinc-200 mb-3 pl-3 border-l-2 border-zinc-700 italic">
               {task.description}
             </div>
           )}
@@ -309,3 +309,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     </div>
   );
 };
+
+
+

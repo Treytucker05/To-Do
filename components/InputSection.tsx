@@ -32,7 +32,7 @@ export const InputSection = forwardRef<HTMLTextAreaElement, InputSectionProps>((
             <Sparkles className="text-red-500" size={20} />
             <h2>Smart Input</h2>
           </div>
-          <div className="flex items-center gap-3 text-xs font-medium text-zinc-500">
+          <div className="flex items-center gap-3 text-xs font-medium text-zinc-300">
              <span className="flex items-center gap-1 bg-zinc-800 px-2 py-1 rounded border border-zinc-700">
                <Command size={10} /> + / to focus
              </span>
@@ -50,7 +50,7 @@ Ex: 'Paste my history notes here...'
 Ex: 'I finished the history homework'
 Ex: 'Make the exam due next Friday'
 Ex: 'Move Gym to the top of the list'"
-          className="w-full h-32 p-4 rounded-xl border border-zinc-800 bg-black focus:bg-zinc-950 focus:ring-2 focus:ring-red-900/30 focus:border-red-800 outline-none resize-none transition-all placeholder:text-zinc-600 text-zinc-200"
+          className="w-full h-32 p-4 rounded-xl border border-zinc-800 bg-black focus:bg-zinc-950 focus:ring-2 focus:ring-red-900/30 focus:border-red-800 outline-none resize-none transition-all placeholder:text-zinc-400 text-zinc-200"
           disabled={isProcessing}
         />
 
@@ -61,7 +61,7 @@ Ex: 'Move Gym to the top of the list'"
             className={`
               flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium text-white shadow-lg shadow-red-900/20
               transition-all transform active:scale-95
-              ${!input.trim() || isProcessing ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed shadow-none' : 'bg-red-600 hover:bg-red-700 hover:-translate-y-0.5'}
+              ${!input.trim() || isProcessing ? 'bg-zinc-800 text-zinc-300 cursor-not-allowed shadow-none' : 'bg-red-600 hover:bg-red-700 hover:-translate-y-0.5'}
             `}
           >
             {isProcessing ? (

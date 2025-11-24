@@ -245,12 +245,12 @@ const App: React.FC = () => {
           <h1 className="text-xl font-bold text-zinc-100 tracking-tight">SmartDo</h1>
         </div>
         <div className="flex items-center gap-4">
-            <div className="hidden lg:flex items-center gap-3 text-xs text-zinc-600 font-mono">
+            <div className="hidden lg:flex items-center gap-3 text-xs text-zinc-300 font-mono">
                 <span className="flex items-center gap-1"><Command size={10} />S Save</span>
                 <span className="flex items-center gap-1"><Command size={10} />O Open</span>
                 <span className="flex items-center gap-1"><Command size={10} />/ Focus</span>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-300 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
                 <Keyboard size={12} />
                 <span>Pro Shortcuts Active</span>
             </div>
@@ -279,9 +279,9 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 text-sm text-zinc-400 mb-6">
+          <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 text-sm text-zinc-200 mb-6">
             <h4 className="font-semibold mb-2 text-zinc-200">AI Capabilities</h4>
-            <ul className="list-disc pl-4 space-y-1 text-zinc-500">
+            <ul className="list-disc pl-4 space-y-1 text-zinc-300">
               <li>"Paste my Anatomy exam outline"</li>
               <li>"I finished the Stats homework"</li>
               <li>"Move Groceries to the top of the list"</li>
@@ -300,13 +300,13 @@ const App: React.FC = () => {
                     {copied ? 'Copied!' : 'Copy'}
                 </button>
             </div>
-            <p className="text-xs text-zinc-500 mb-2 leading-relaxed">
+            <p className="text-xs text-zinc-300 mb-2 leading-relaxed">
                 Paste this instruction into your AI (ChatGPT/Gemini) so it knows how to format your calendar or notes for this app.
             </p>
             <textarea
                 readOnly
                 value={EXTERNAL_AI_PROMPT}
-                className="w-full h-48 bg-black border border-zinc-800 rounded p-3 text-xs text-zinc-400 font-mono resize-none focus:outline-none focus:border-zinc-700 cursor-text"
+                className="w-full h-48 bg-black border border-zinc-800 rounded p-3 text-xs text-zinc-200 font-mono resize-none focus:outline-none focus:border-zinc-700 cursor-text"
                 onClick={(e) => e.currentTarget.select()}
             />
           </div>

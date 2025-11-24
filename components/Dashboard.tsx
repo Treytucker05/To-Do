@@ -168,7 +168,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
              </div>
              
              {list.length === 0 ? (
-                 <div className="border border-dashed border-zinc-800 rounded-xl p-8 text-center text-zinc-600 italic">
+                 <div className="border border-dashed border-zinc-800 rounded-xl p-8 text-center text-zinc-300 italic">
                     Drag tasks here to schedule for {title.toLowerCase()}.
                  </div>
              ) : (
@@ -199,7 +199,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="flex justify-between items-end mb-2">
             <div>
                 <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">{greeting}.</h2>
-                <p className="text-zinc-500 text-sm font-medium">You have <span className="text-zinc-200">{overdue.length + today.length} tasks</span> to focus on today.</p>
+                <p className="text-zinc-200 text-sm font-medium">You have <span className="text-zinc-200">{overdue.length + today.length} tasks</span> to focus on today.</p>
             </div>
             <div className="text-right">
                 <span className="text-3xl font-bold text-zinc-200">{stats.percent}%</span>
@@ -237,14 +237,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             "On The Horizon", 
             upcoming, 
             <Calendar size={18} />, 
-            "text-zinc-400 border-zinc-700 bg-zinc-800/20", 
+            "text-zinc-200 border-zinc-700 bg-zinc-800/20", 
             "upcoming"
         )}
 
         {/* SECTION: COMPLETED (No DnD) */}
         {completed.length > 0 && (
             <div className="pt-8 border-t border-zinc-900 mt-8">
-                <div className="flex items-center gap-2 mb-3 text-zinc-600">
+                <div className="flex items-center gap-2 mb-3 text-zinc-300">
                     <CheckCircle2 size={18} />
                     <h3 className="font-bold text-sm uppercase tracking-wider">Recently Completed</h3>
                 </div>
@@ -260,7 +260,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         />
                     ))}
                     {completed.length > 5 && (
-                        <div className="text-center text-xs text-zinc-700 py-2">
+                        <div className="text-center text-xs text-zinc-200 py-2">
                             + {completed.length - 5} more completed tasks hidden
                         </div>
                     )}
@@ -272,3 +272,4 @@ export const Dashboard: React.FC<DashboardProps> = ({
     </div>
   );
 };
+

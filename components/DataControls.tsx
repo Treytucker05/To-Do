@@ -17,11 +17,11 @@ export const DataControls: React.FC<DataControlsProps> = ({ onExport, onImport, 
       <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-800/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
       <div className="flex items-center gap-2 mb-3 text-zinc-100 font-semibold relative z-10">
-        <HardDrive size={18} className="text-zinc-400" />
+        <HardDrive size={18} className="text-zinc-200" />
         <h3>Cloud Sync & Backup</h3>
       </div>
       
-      <p className="text-xs text-zinc-500 mb-4 leading-relaxed relative z-10">
+      <p className="text-xs text-zinc-300 mb-4 leading-relaxed relative z-10">
         To sync between devices, use your <strong>Google Drive</strong> or <strong>OneDrive</strong>:
         <br/>
         1. <strong>Backup</strong> this list to your Drive folder.
@@ -60,7 +60,7 @@ export const DataControls: React.FC<DataControlsProps> = ({ onExport, onImport, 
             onClear();
           }
         }}
-        className="w-full flex items-center justify-center gap-2 text-red-900 hover:text-red-500 hover:bg-red-950/20 text-xs py-2 rounded transition-colors relative z-10"
+        className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-950/20 text-xs py-2 rounded transition-colors relative z-10"
       >
         <Trash size={12} />
         Reset / Clear All Data
@@ -68,3 +68,4 @@ export const DataControls: React.FC<DataControlsProps> = ({ onExport, onImport, 
     </div>
   );
 };
+
