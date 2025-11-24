@@ -1,13 +1,12 @@
-
-import React, { useState } from 'react';
-import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, forwardRef } from 'react';
+import { Sparkles, ArrowRight, Loader2, Command } from 'lucide-react';
 
 interface InputSectionProps {
   onProcess: (text: string) => Promise<void>;
   isProcessing: boolean;
 }
 
-export const InputSection: React.FC<InputSectionProps> = ({ onProcess, isProcessing }) => {
+export const InputSection = forwardRef<HTMLTextAreaElement, InputSectionProps>(({ onProcess, isProcessing }, ref) => {
   const [input, setInput] = useState('');
 
   const handleSubmit = async () => {
@@ -33,10 +32,16 @@ export const InputSection: React.FC<InputSectionProps> = ({ onProcess, isProcess
             <Sparkles className="text-red-500" size={20} />
             <h2>Smart Input</h2>
           </div>
-          <span className="text-xs font-medium text-zinc-500">CMD + Enter to submit</span>
+          <div className="flex items-center gap-3 text-xs font-medium text-zinc-500">
+             <span className="flex items-center gap-1 bg-zinc-800 px-2 py-1 rounded border border-zinc-700">
+               <Command size={10} /> + / to focus
+             </span>
+             <span>CMD + Enter to submit</span>
+          </div>
         </div>
 
         <textarea
+          ref={ref}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -75,4 +80,6 @@ Ex: 'Move Gym to the top of the list'"
       </div>
     </div>
   );
-};
+});
+
+InputSection.displayName = 'InputSection';

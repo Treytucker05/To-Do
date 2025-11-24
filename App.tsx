@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { InputSection } from './components/InputSection';
 import { Dashboard } from './components/Dashboard';
@@ -7,7 +6,7 @@ import { DataControls } from './components/DataControls';
 import { parseTasksFromText } from './services/geminiService';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { Task, Priority, Subtask, AISubtask } from './types';
-import { BrainCircuit, Info, Copy, Check } from 'lucide-react';
+import { BrainCircuit, Info, Copy, Check, Command, Keyboard } from 'lucide-react';
 
 const EXTERNAL_AI_PROMPT = `Analyze the provided content (calendar, notes, or list) and organize it into a strict hierarchical to-do list.
 
@@ -24,6 +23,10 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  
+  // Refs for keyboard shortcuts
+  const inputSectionRef = useRef<HTMLTextAreaElement>(null);
+  const hiddenFileInputRef = useRef<HTMLInputElement>(null);
 
   // Ensure all tasks have an order property (migration for existing data)
   useEffect(() => {
@@ -41,6 +44,31 @@ const App: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount/load
+
+  // Keyboard Shortcuts Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // CMD/CTRL + S (Save/Backup)
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleExport();
+      }
+      // CMD/CTRL + O (Open/Restore)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+        e.preventDefault();
+        hiddenFileInputRef.current?.click();
+      }
+      // CMD/CTRL + / (Focus Input)
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        inputSectionRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks]); // Re-bind if tasks change (for export closure)
 
   // Recursive helper to map AI subtasks to application Subtasks with UUIDs
   const mapSubtasks = (items?: AISubtask[]): Subtask[] => {
@@ -97,6 +125,8 @@ const App: React.FC = () => {
       });
 
       setTasks(updatedTasks);
+      setSuccessMsg("List updated successfully.");
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       console.error(err);
       setError("Failed to process tasks. Please try again. Make sure your API Key is valid.");
@@ -162,8 +192,8 @@ const App: React.FC = () => {
     document.body.appendChild(downloadAnchorNode); 
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
-    setSuccessMsg("Backup downloaded successfully.");
-    setTimeout(() => setSuccessMsg(null), 3000);
+    setSuccessMsg("Backup saved. Upload this to your Drive.");
+    setTimeout(() => setSuccessMsg(null), 4000);
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,7 +211,7 @@ const App: React.FC = () => {
                  order: t.order ?? i * 1000
              }));
              setTasks(imported);
-             setSuccessMsg("Tasks restored successfully from file.");
+             setSuccessMsg("Tasks restored successfully.");
              setTimeout(() => setSuccessMsg(null), 3000);
         } else {
             setError("Invalid file format. Expected a list of tasks.");
@@ -198,22 +228,42 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen w-full flex flex-col bg-black">
-      <header className="bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+      {/* Hidden file input for Shortcut CMD+O */}
+      <input 
+        type="file" 
+        ref={hiddenFileInputRef}
+        onChange={handleImport}
+        accept=".json"
+        className="hidden" 
+      />
+
+      <header className="bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex justify-between items-center sticky top-0 z-10 select-none">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-red-600 rounded-lg text-white">
+          <div className="p-2 bg-red-600 rounded-lg text-white shadow-lg shadow-red-900/30">
             <BrainCircuit size={24} />
           </div>
-          <h1 className="text-xl font-bold text-zinc-100 tracking-tight">SmartDo AI</h1>
+          <h1 className="text-xl font-bold text-zinc-100 tracking-tight">SmartDo</h1>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-sm text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
-          <Info size={14} />
-          <span>Local Storage Enabled</span>
+        <div className="flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-3 text-xs text-zinc-600 font-mono">
+                <span className="flex items-center gap-1"><Command size={10} />S Save</span>
+                <span className="flex items-center gap-1"><Command size={10} />O Open</span>
+                <span className="flex items-center gap-1"><Command size={10} />/ Focus</span>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
+                <Keyboard size={12} />
+                <span>Pro Shortcuts Active</span>
+            </div>
         </div>
       </header>
 
       <main className="flex-1 overflow-hidden flex flex-col md:flex-row">
         <div className="w-full md:w-[450px] p-6 overflow-y-auto border-r border-zinc-800 bg-black">
-          <InputSection onProcess={handleProcess} isProcessing={isProcessing} />
+          <InputSection 
+            ref={inputSectionRef} 
+            onProcess={handleProcess} 
+            isProcessing={isProcessing} 
+          />
           
           <DataControls onExport={handleExport} onImport={handleImport} onClear={handleClearData} />
 
@@ -224,13 +274,13 @@ const App: React.FC = () => {
           )}
 
           {successMsg && (
-            <div className="bg-green-950/30 text-green-400 p-4 rounded-xl border border-green-900/50 text-sm mb-6 flex items-center gap-2">
+            <div className="bg-green-950/30 text-green-400 p-4 rounded-xl border border-green-900/50 text-sm mb-6 flex items-center gap-2 animate-in slide-in-from-left-2">
               <Check size={16} /> {successMsg}
             </div>
           )}
 
           <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 text-sm text-zinc-400 mb-6">
-            <h4 className="font-semibold mb-2 text-zinc-200">What can I do?</h4>
+            <h4 className="font-semibold mb-2 text-zinc-200">AI Capabilities</h4>
             <ul className="list-disc pl-4 space-y-1 text-zinc-500">
               <li>"Paste my Anatomy exam outline"</li>
               <li>"I finished the Stats homework"</li>

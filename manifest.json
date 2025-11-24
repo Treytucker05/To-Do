@@ -3,9 +3,12 @@
   "short_name": "SmartDo",
   "start_url": ".",
   "display": "standalone",
+  "display_override": ["window-controls-overlay"],
   "background_color": "#000000",
-  "theme_color": "#000000",
-  "orientation": "portrait-primary",
+  "theme_color": "#09090b",
+  "description": "An intelligent desktop-class task manager that syncs via local files.",
+  "categories": ["productivity", "utilities"],
+  "orientation": "any",
   "icons": [
     {
       "src": "https://cdn.jsdelivr.net/gh/lucide-icons/lucide/icons/brain-circuit.svg",
