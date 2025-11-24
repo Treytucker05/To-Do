@@ -1,3 +1,4 @@
+
 export enum Priority {
   High = 'High',
   Medium = 'Medium',
@@ -21,6 +22,7 @@ export interface Task {
   subtasks: Subtask[];
   isCompleted: boolean;
   createdAt: string;
+  order: number;
 }
 
 export interface AISubtask {

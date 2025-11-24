@@ -1,13 +1,16 @@
 
 import React, { useState } from 'react';
 import { Task, Priority, Subtask } from '../types';
-import { Trash2, CheckCircle, Circle, ChevronDown, ChevronUp, Clock, Tag, AlertTriangle } from 'lucide-react';
+import { Trash2, CheckCircle, Circle, ChevronDown, ChevronUp, Clock, AlertTriangle, GripVertical } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  isDraggable?: boolean;
+  onDragStart?: (e: React.DragEvent, id: string) => void;
+  onDrop?: (e: React.DragEvent, targetId: string) => void;
 }
 
 // Recursive Subtask Component
@@ -73,8 +76,18 @@ const SubtaskItem: React.FC<{
   );
 };
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleComplete, onDelete, onToggleSubtask }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ 
+  task, 
+  onToggleComplete, 
+  onDelete, 
+  onToggleSubtask,
+  isDraggable,
+  onDragStart,
+  onDrop
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const priorityConfig = {
     [Priority.High]: { 
@@ -126,28 +139,62 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleComplete, onDe
     && new Date(task.dueDate) < new Date(new Date().setHours(0,0,0,0)) 
     && !task.isCompleted;
 
-  // Helper to count total subtasks recursively
-  const countSubtasks = (items: Subtask[]): { total: number, completed: number } => {
+  const counts = ((items: Subtask[]) => {
     let total = 0;
     let completed = 0;
-    for (const item of items) {
-      total++;
-      if (item.isCompleted) completed++;
-      const childCounts = countSubtasks(item.subtasks);
-      total += childCounts.total;
-      completed += childCounts.completed;
+    const count = (list: Subtask[]) => {
+      for (const item of list) {
+        total++;
+        if (item.isCompleted) completed++;
+        if (item.subtasks) count(item.subtasks);
+      }
     }
+    count(items);
     return { total, completed };
-  };
+  })(task.subtasks);
 
-  const counts = countSubtasks(task.subtasks);
   const pStyle = priorityConfig[task.priority];
 
+  const handleDragStart = (e: React.DragEvent) => {
+    setIsDragging(true);
+    if (onDragStart) onDragStart(e, task.id);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setIsDragOver(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!isDraggable) return;
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (onDrop) onDrop(e, task.id);
+  };
+
   return (
-    <div className={`
+    <div 
+      draggable={isDraggable}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`
         group relative bg-zinc-900 rounded-xl border transition-all duration-300
         ${task.isCompleted ? 'border-zinc-800/50 opacity-60' : 'border-zinc-800 hover:border-zinc-600 hover:shadow-lg hover:shadow-black/20'}
         ${isOverdue && !task.isCompleted ? 'border-red-900/40' : ''}
+        ${isDragging ? 'opacity-30 scale-95' : 'opacity-100'}
+        ${isDragOver ? 'border-t-2 border-t-red-500 translate-y-2' : ''}
     `}>
         {/* Priority Stripe for High Priority */}
         {task.priority === Priority.High && !task.isCompleted && (
@@ -155,6 +202,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggleComplete, onDe
         )}
 
       <div className="p-4 flex items-start gap-4">
+        {/* Drag Handle (Only visible on hover if draggable) */}
+        {isDraggable && (
+          <div className="mt-1.5 -ml-1 text-zinc-700 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical size={16} />
+          </div>
+        )}
+
         {/* Checkbox Area */}
         <button 
           onClick={() => onToggleComplete(task.id)}

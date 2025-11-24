@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { InputSection } from './components/InputSection';
 import { Dashboard } from './components/Dashboard';
@@ -25,8 +25,24 @@ const App: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Ensure all tasks have an order property (migration for existing data)
+  useEffect(() => {
+    let changed = false;
+    const maxOrder = tasks.length > 0 ? Math.max(...tasks.map(t => t.order || 0)) : 0;
+    const updated = tasks.map((t, idx) => {
+      if (t.order === undefined) {
+        changed = true;
+        return { ...t, order: maxOrder + (idx + 1) * 1000 };
+      }
+      return t;
+    });
+    if (changed) {
+      setTasks(updated);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount/load
+
   // Recursive helper to map AI subtasks to application Subtasks with UUIDs
-  // We try to preserve IDs if the AI returned them and they aren't "NEW"
   const mapSubtasks = (items?: AISubtask[]): Subtask[] => {
     if (!items) return [];
     return items.map(item => ({
@@ -43,20 +59,15 @@ const App: React.FC = () => {
     setError(null);
     setSuccessMsg(null);
     try {
-      // Pass current tasks so AI can update them (add dates, rename, reorder)
       const result = await parseTasksFromText(text, tasks);
       
-      const updatedTasks: Task[] = result.tasks.map(t => {
-        // Check if this corresponds to an existing task
+      const currentMaxOrder = tasks.length > 0 ? Math.max(...tasks.map(t => t.order || 0)) : 0;
+      let newCount = 0;
+
+      const updatedTasks: Task[] = result.tasks.map((t, idx) => {
         const existingTask = tasks.find(old => old.id === t.id);
-        
-        // Determine ID: If AI sent a known ID, keep it. If "NEW" or missing, generate UUID.
         const finalId = (t.id && t.id !== 'NEW' && existingTask) ? t.id : uuidv4();
 
-        // Determine Completion: 
-        // 1. If AI explicitly returns a boolean (user said "I finished X"), use it.
-        // 2. Otherwise, preserve existing state.
-        // 3. Default to false for new items.
         // @ts-ignore
         const aiCompletedStatus = t.isCompleted; 
         let finalIsCompleted = false;
@@ -67,6 +78,10 @@ const App: React.FC = () => {
           finalIsCompleted = existingTask.isCompleted;
         }
 
+        // Preserve order if existing, else assign new order at the end
+        let finalOrder = existingTask ? existingTask.order : (currentMaxOrder + (++newCount * 1000));
+        if (finalOrder === undefined) finalOrder = (idx + 1) * 1000;
+
         return {
           id: finalId,
           title: t.title,
@@ -76,11 +91,11 @@ const App: React.FC = () => {
           category: t.category,
           isCompleted: finalIsCompleted,
           createdAt: existingTask ? existingTask.createdAt : new Date().toISOString(),
-          subtasks: mapSubtasks(t.subtasks)
+          subtasks: mapSubtasks(t.subtasks),
+          order: finalOrder
         };
       });
 
-      // Replace the entire list with the AI's ordered, updated list
       setTasks(updatedTasks);
     } catch (err) {
       console.error(err);
@@ -100,6 +115,10 @@ const App: React.FC = () => {
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
+  const handleUpdateTask = (id: string, updates: Partial<Task>) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
   const handleClearData = () => {
     setTasks([]);
     setSuccessMsg("All tasks cleared.");
@@ -110,14 +129,11 @@ const App: React.FC = () => {
     setTasks(prev => prev.map(t => {
       if (t.id !== taskId) return t;
 
-      // Recursive update function
       const updateSubtasks = (items: Subtask[]): Subtask[] => {
         return items.map(item => {
-          // If this is the item, toggle it
           if (item.id === subtaskId) {
             return { ...item, isCompleted: !item.isCompleted };
           }
-          // If it has children, recurse
           if (item.subtasks && item.subtasks.length > 0) {
             return { ...item, subtasks: updateSubtasks(item.subtasks) };
           }
@@ -159,7 +175,12 @@ const App: React.FC = () => {
       try {
         const json = JSON.parse(event.target?.result as string);
         if (Array.isArray(json)) {
-             setTasks(json);
+             // Ensure imported tasks have order
+             const imported = json.map((t: any, i: number) => ({
+                 ...t,
+                 order: t.order ?? i * 1000
+             }));
+             setTasks(imported);
              setSuccessMsg("Tasks restored successfully from file.");
              setTimeout(() => setSuccessMsg(null), 3000);
         } else {
@@ -172,12 +193,11 @@ const App: React.FC = () => {
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input so same file can be selected again
+    e.target.value = '';
   };
 
   return (
     <div className="h-screen w-full flex flex-col bg-black">
-      {/* Header */}
       <header className="bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-red-600 rounded-lg text-white">
@@ -191,9 +211,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Layout */}
       <main className="flex-1 overflow-hidden flex flex-col md:flex-row">
-        {/* Left/Top: Input Area */}
         <div className="w-full md:w-[450px] p-6 overflow-y-auto border-r border-zinc-800 bg-black">
           <InputSection onProcess={handleProcess} isProcessing={isProcessing} />
           
@@ -221,7 +239,6 @@ const App: React.FC = () => {
             </ul>
           </div>
 
-          {/* Prompt Helper */}
           <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
             <div className="flex justify-between items-center mb-2">
                 <h4 className="font-semibold text-zinc-200 text-sm">Helper Prompt</h4>
@@ -245,13 +262,13 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Right/Bottom: Task List */}
         <div className="flex-1 p-6 bg-black overflow-hidden">
           <Dashboard 
             tasks={tasks} 
             onToggleComplete={toggleComplete} 
             onDelete={deleteTask} 
             onToggleSubtask={toggleSubtask}
+            onUpdateTask={handleUpdateTask}
           />
         </div>
       </main>

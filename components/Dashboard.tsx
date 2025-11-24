@@ -1,17 +1,24 @@
 
 import React, { useMemo } from 'react';
-import { Task } from '../types';
+import { Task, Priority } from '../types';
 import { TaskCard } from './TaskCard';
-import { Calendar, CheckCircle2, AlertCircle, Sun, Layers, LayoutList } from 'lucide-react';
+import { Calendar, CheckCircle2, AlertCircle, Sun } from 'lucide-react';
 
 interface DashboardProps {
   tasks: Task[];
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  onUpdateTask: (id: string, updates: Partial<Task>) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ tasks, onToggleComplete, onDelete, onToggleSubtask }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  tasks, 
+  onToggleComplete, 
+  onDelete, 
+  onToggleSubtask,
+  onUpdateTask 
+}) => {
   
   const { overdue, today, upcoming, completed, stats } = useMemo(() => {
     const now = new Date();
@@ -23,13 +30,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, onToggleComplete, o
     const upcoming: Task[] = [];
     const completed: Task[] = [];
 
-    // Sort helper: Priority (High>Med>Low) -> Date
+    // Sort helper: Order -> Priority (High>Med>Low) -> Date
     const sorter = (a: Task, b: Task) => {
-      const pMap = { High: 0, Medium: 1, Low: 2 };
-      if (pMap[a.priority] !== pMap[b.priority]) return pMap[a.priority] - pMap[b.priority];
-      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-      return dateA - dateB;
+        // Primary sort: Custom Order
+        if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+        }
+        // Fallback for missing orders (shouldn't happen with new logic)
+        return 0;
     };
 
     tasks.forEach(t => {
@@ -52,19 +60,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, onToggleComplete, o
       else upcoming.push(t);
     });
 
-    // Calculate stats
     const totalActive = overdue.length + todayTasks.length;
-    const totalDoneToday = completed.filter(t => {
-        // Simple check: if a task is completed, we count it towards "Daily Velocity" if it was done recently or originally due today.
-        // For simplicity in this app, we just count total completed tasks in the list vs total tasks.
-        return true; 
-    }).length;
     
     return {
       overdue: overdue.sort(sorter),
       today: todayTasks.sort(sorter),
       upcoming: upcoming.sort(sorter),
-      completed: completed.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), // Newest completed first
+      completed: completed.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
       stats: {
         total: tasks.length,
         done: completed.length,
@@ -79,6 +81,115 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, onToggleComplete, o
     if (hour < 18) return "Good afternoon";
     return "Good evening";
   }, []);
+
+  // --- Drag and Drop Logic ---
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData("text/plain", id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string | null, sectionName: 'overdue' | 'today' | 'upcoming') => {
+    e.preventDefault();
+    const dragId = e.dataTransfer.getData("text/plain");
+    
+    // Prevent dropping on self
+    if (dragId === targetId) return;
+
+    // Find the task being dragged
+    const dragTask = tasks.find(t => t.id === dragId);
+    if (!dragTask) return;
+
+    const updates: Partial<Task> = {};
+    const now = new Date();
+    
+    // 1. Determine Section updates (Dates/Priority)
+    // Only update if moving to a DIFFERENT section effectively
+    if (sectionName === 'today') {
+        updates.dueDate = new Date().toISOString();
+    } else if (sectionName === 'upcoming') {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        updates.dueDate = tomorrow.toISOString();
+    } else if (sectionName === 'overdue') {
+        // Dragging to "Critical" means make it High Priority Today (or keep date if already overdue)
+        updates.priority = Priority.High;
+        if (!dragTask.dueDate || new Date(dragTask.dueDate) > now) {
+            updates.dueDate = new Date().toISOString();
+        }
+    }
+
+    // 2. Determine Order
+    let newOrder = 0;
+    const targetSectionList = sectionName === 'overdue' ? overdue 
+                            : sectionName === 'today' ? today 
+                            : upcoming;
+
+    if (targetId) {
+        // Dropped onto a task -> insert before it
+        const targetIndex = targetSectionList.findIndex(t => t.id === targetId);
+        if (targetIndex !== -1) {
+            const targetTask = targetSectionList[targetIndex];
+            const prevTask = targetIndex > 0 ? targetSectionList[targetIndex - 1] : null;
+            
+            if (prevTask) {
+                newOrder = (targetTask.order + prevTask.order) / 2;
+            } else {
+                newOrder = targetTask.order - 1000;
+            }
+        }
+    } else {
+        // Dropped at the end of the list
+        if (targetSectionList.length > 0) {
+            const lastTask = targetSectionList[targetSectionList.length - 1];
+            newOrder = lastTask.order + 1000;
+        } else {
+            newOrder = 1000;
+        }
+    }
+
+    updates.order = newOrder;
+    onUpdateTask(dragId, updates);
+  };
+
+  const renderSection = (title: string, list: Task[], icon: React.ReactNode, colorClass: string, sectionId: 'overdue' | 'today' | 'upcoming') => {
+    if (list.length === 0 && sectionId !== 'today') return null;
+
+    return (
+        <div 
+            className="animate-in fade-in slide-in-from-bottom-2 duration-500 mb-6"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, null, sectionId)} // Handle drop on empty section
+        >
+             <div className={`flex items-center gap-2 mb-3 ${colorClass}`}>
+                {icon}
+                <h3 className="font-bold text-sm uppercase tracking-wider">{title}</h3>
+                <span className={`text-xs px-2 py-0.5 rounded-full border opacity-70`}>{list.length}</span>
+             </div>
+             
+             {list.length === 0 ? (
+                 <div className="border border-dashed border-zinc-800 rounded-xl p-8 text-center text-zinc-600 italic">
+                    Drag tasks here to schedule for {title.toLowerCase()}.
+                 </div>
+             ) : (
+                 <div className="space-y-3">
+                   {list.map(task => (
+                     <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        onToggleComplete={onToggleComplete} 
+                        onDelete={onDelete} 
+                        onToggleSubtask={onToggleSubtask}
+                        isDraggable={true}
+                        onDragStart={handleDragStart}
+                        onDrop={(e, targetId) => handleDrop(e, targetId, sectionId)}
+                     />
+                   ))}
+                 </div>
+             )}
+          </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
@@ -105,72 +216,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, onToggleComplete, o
       </div>
 
       {/* 2. Scrollable Task Sections */}
-      <div className="flex-1 overflow-y-auto pr-2 pb-20 space-y-8 custom-scrollbar">
-        
-        {/* SECTION: CRITICAL (Overdue) */}
-        {overdue.length > 0 && (
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-             <div className="flex items-center gap-2 mb-3 text-red-400">
-                <AlertCircle size={18} />
-                <h3 className="font-bold text-sm uppercase tracking-wider">Critical Attention</h3>
-                <span className="bg-red-950/50 text-red-400 text-xs px-2 py-0.5 rounded-full border border-red-900/30">{overdue.length}</span>
-             </div>
-             <div className="space-y-3">
-               {overdue.map(task => (
-                 <TaskCard key={task.id} task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} onToggleSubtask={onToggleSubtask} />
-               ))}
-             </div>
-          </div>
+      <div className="flex-1 overflow-y-auto pr-2 pb-20 custom-scrollbar">
+        {renderSection(
+            "Critical Attention", 
+            overdue, 
+            <AlertCircle size={18} />, 
+            "text-red-400 border-red-900/30 bg-red-950/20", 
+            "overdue"
         )}
 
-        {/* SECTION: TODAY */}
-        {(today.length > 0 || (overdue.length === 0 && upcoming.length === 0 && completed.length === 0)) && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-            <div className="flex items-center gap-2 mb-3 text-amber-400">
-                <Sun size={18} />
-                <h3 className="font-bold text-sm uppercase tracking-wider">Action Plan (Today)</h3>
-                <span className="bg-amber-950/30 text-amber-500 text-xs px-2 py-0.5 rounded-full border border-amber-900/30">{today.length}</span>
-             </div>
-             {today.length === 0 ? (
-                <div className="border border-dashed border-zinc-800 rounded-xl p-8 text-center text-zinc-600 italic">
-                    No active tasks for today. Enjoy the calm.
-                </div>
-             ) : (
-                <div className="space-y-3">
-                  {today.map(task => (
-                    <TaskCard key={task.id} task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} onToggleSubtask={onToggleSubtask} />
-                  ))}
-                </div>
-             )}
-          </div>
+        {renderSection(
+            "Action Plan (Today)", 
+            today, 
+            <Sun size={18} />, 
+            "text-amber-400 border-amber-900/30 bg-amber-950/20", 
+            "today"
         )}
 
-        {/* SECTION: UPCOMING */}
-        {upcoming.length > 0 && (
-          <div className="animate-in fade-in slide-in-from-bottom-6 duration-500 delay-200">
-            <div className="flex items-center gap-2 mb-3 text-zinc-400">
-                <Calendar size={18} />
-                <h3 className="font-bold text-sm uppercase tracking-wider">On The Horizon</h3>
-                <span className="bg-zinc-800 text-zinc-500 text-xs px-2 py-0.5 rounded-full border border-zinc-700">{upcoming.length}</span>
-             </div>
-             <div className="space-y-3 opacity-90">
-               {upcoming.map(task => (
-                 <TaskCard key={task.id} task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} onToggleSubtask={onToggleSubtask} />
-               ))}
-             </div>
-          </div>
+        {renderSection(
+            "On The Horizon", 
+            upcoming, 
+            <Calendar size={18} />, 
+            "text-zinc-400 border-zinc-700 bg-zinc-800/20", 
+            "upcoming"
         )}
 
-        {/* SECTION: COMPLETED */}
+        {/* SECTION: COMPLETED (No DnD) */}
         {completed.length > 0 && (
-            <div className="pt-8 border-t border-zinc-900">
+            <div className="pt-8 border-t border-zinc-900 mt-8">
                 <div className="flex items-center gap-2 mb-3 text-zinc-600">
                     <CheckCircle2 size={18} />
                     <h3 className="font-bold text-sm uppercase tracking-wider">Recently Completed</h3>
                 </div>
                 <div className="space-y-3 opacity-60 hover:opacity-100 transition-opacity">
-                    {completed.slice(0, 5).map(task => ( // Only show last 5 completed to keep it clean
-                        <TaskCard key={task.id} task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} onToggleSubtask={onToggleSubtask} />
+                    {completed.slice(0, 5).map(task => (
+                        <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            onToggleComplete={onToggleComplete} 
+                            onDelete={onDelete} 
+                            onToggleSubtask={onToggleSubtask}
+                            isDraggable={false} 
+                        />
                     ))}
                     {completed.length > 5 && (
                         <div className="text-center text-xs text-zinc-700 py-2">
